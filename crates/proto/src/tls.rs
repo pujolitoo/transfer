@@ -114,15 +114,27 @@ pub struct Identity {
     pub fingerprint: String,
 }
 
+/// ChaCha20 first, whatever the client prefers: on CPUs without AES
+/// instructions, such as the Raspberry Pi 4, it is about five times faster,
+/// and a relay encrypts every byte it forwards twice.
+fn server_provider() -> Arc<CryptoProvider> {
+    let mut provider = ring::default_provider();
+    provider
+        .cipher_suites
+        .sort_by_key(|s| s.suite() != rustls::CipherSuite::TLS13_CHACHA20_POLY1305_SHA256);
+    Arc::new(provider)
+}
+
 fn server_config(
     certs: Vec<CertificateDer<'static>>,
     key: PrivateKeyDer<'static>,
 ) -> Result<Identity, rustls::Error> {
     let fingerprint = fingerprint(certs.first().map(|c| c.as_ref()).unwrap_or_default());
-    let config = ServerConfig::builder_with_provider(provider())
+    let mut config = ServerConfig::builder_with_provider(server_provider())
         .with_protocol_versions(&[&rustls::version::TLS13])?
         .with_no_client_auth()
         .with_single_cert(certs, key)?;
+    config.ignore_client_order = true;
     Ok(Identity { config: Arc::new(config), fingerprint })
 }
 
