@@ -261,7 +261,7 @@ fn open_downloads(app: AppHandle, engine: State<'_, Engine>) -> CmdResult {
 }
 
 fn missing_file() -> String {
-    "El fichero ya no está en esa ubicación".into()
+    "The file is no longer in that location".into()
 }
 
 fn is_executable(path: &std::path::Path) -> bool {
@@ -277,7 +277,7 @@ pub(crate) async fn ask(app: &AppHandle, message: String, confirm: String) -> bo
         .message(message)
         .title("Transfer")
         .kind(MessageDialogKind::Warning)
-        .buttons(MessageDialogButtons::OkCancelCustom(confirm, "Cancelar".into()));
+        .buttons(MessageDialogButtons::OkCancelCustom(confirm, "Cancel".into()));
     if let Some(window) = app.get_webview_window("main") {
         builder = builder.parent(&window);
     }
@@ -299,10 +299,10 @@ async fn open_received(app: AppHandle, engine: State<'_, Engine>, id: String) ->
     if is_executable(&file) {
         let name = file.file_name().unwrap_or_default().to_string_lossy();
         let message = format!(
-            "{name} es un programa o script y se ejecutará en tu equipo.\n\n\
-             Ejecútalo solo si confías en quien lo envió."
+            "{name} is a program or script and will run on your computer.\n\n\
+             Only run it if you trust whoever sent it."
         );
-        if !ask(&app, message, "Ejecutar".into()).await {
+        if !ask(&app, message, "Run".into()).await {
             return Ok(());
         }
     }
@@ -377,7 +377,7 @@ pub(crate) fn notify(app: &AppHandle, title: &str, body: &str) {
 fn describe(transfer: &TransferView) -> String {
     match transfer.file_count {
         1 => transfer.first_file.clone(),
-        n => format!("{n} ficheros"),
+        n => format!("{n} files"),
     }
 }
 
@@ -391,9 +391,9 @@ struct TrayStatus {
 impl TrayStatus {
     fn update(&self, app: &AppHandle, state: Connection, username: Option<&str>) {
         let (label, icon) = match (state, username) {
-            (Connection::Online, Some(name)) => (format!("Conectado como {name}"), &self.online),
-            (Connection::Connecting, _) => ("Conectando…".to_string(), &self.offline),
-            _ => ("Sesión no iniciada".to_string(), &self.offline),
+            (Connection::Online, Some(name)) => (format!("Signed in as {name}"), &self.online),
+            (Connection::Connecting, _) => ("Connecting…".to_string(), &self.offline),
+            _ => ("Not signed in".to_string(), &self.offline),
         };
         let _ = self.item.set_text(&label);
         if let Some(tray) = app.tray_by_id(TRAY_ID) {
@@ -421,7 +421,7 @@ async fn forward_events(
                 }
             }
             EngineEvent::FriendRequest { username } => {
-                notify(&app, "Solicitud de amistad", &format!("{username} quiere ser tu amigo"));
+                notify(&app, "Friend request", &format!("{username} wants to be your friend"));
             }
             EngineEvent::Transfer { transfer } => {
                 let once = |notified: &mut HashSet<_>, tag| {
@@ -433,16 +433,16 @@ async fn forward_events(
                     }
                     TransferState::Done if once(&mut notified, "done") => {
                         let (title, verb) = if transfer.sending {
-                            ("Envío completado", "enviado a")
+                            ("Sent", "sent to")
                         } else {
-                            ("Recepción completada", "recibido de")
+                            ("Received", "received from")
                         };
                         let body = format!("{} {verb} {}", describe(transfer), transfer.peer);
                         notify(&app, title, &body);
                     }
                     TransferState::Failed if once(&mut notified, "failed") => {
-                        let reason = transfer.message.as_deref().unwrap_or("Error desconocido");
-                        notify(&app, "La transferencia ha fallado", reason);
+                        let reason = transfer.message.as_deref().unwrap_or("Unknown error");
+                        notify(&app, "The transfer failed", reason);
                     }
                     _ => {}
                 }
@@ -466,10 +466,10 @@ async fn forward_events(
 }
 
 fn build_tray(app: &AppHandle) -> tauri::Result<TrayStatus> {
-    let status = MenuItem::new(app, "Conectando…", false, None::<&str>)?;
-    let open = MenuItem::with_id(app, "open", "Abrir Transfer", true, None::<&str>)?;
+    let status = MenuItem::new(app, "Connecting…", false, None::<&str>)?;
+    let open = MenuItem::with_id(app, "open", "Open Transfer", true, None::<&str>)?;
     let update = update::tray_item(app)?;
-    let quit = MenuItem::with_id(app, "quit", "Salir", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
     let menu = Menu::with_items(app, &[&status, &separator, &open, &update, &quit])?;
     let online = Image::from_bytes(include_bytes!("../icons/tray-online.png"))?.to_owned();
@@ -579,10 +579,10 @@ mod tests {
 
     #[test]
     fn detects_programs_whatever_their_case() {
-        for name in ["setup.exe", "SETUP.EXE", "foto.jpg.Bat", "run.ps1"] {
+        for name in ["setup.exe", "SETUP.EXE", "photo.jpg.Bat", "run.ps1"] {
             assert!(is_executable(Path::new(name)), "{name}");
         }
-        for name in ["foto.jpg", "exe", "nota.txt", "sin-extension"] {
+        for name in ["photo.jpg", "exe", "note.txt", "no-extension"] {
             assert!(!is_executable(Path::new(name)), "{name}");
         }
     }
@@ -649,7 +649,7 @@ fn main() {
         ])
         .setup(setup)
         .on_window_event(|window, event| {
-            // Closing the window sends the app to the tray; "Salir" really quits.
+            // Closing the window sends the app to the tray; "Quit" really quits.
             if let WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
                 let _ = window.hide();

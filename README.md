@@ -1,171 +1,173 @@
 # Transfer
 
-Transferencia de ficheros entre amigos por túneles TCP. Cada usuario tiene una cuenta y una app en el system tray; los ficheros pasan por servidores intermediarios que solo ven datos cifrados.
+File transfer between friends over TCP tunnels. Each user has an account and an app in the system tray; files travel through intermediary servers that only ever see encrypted data.
 
 ```text
- Cliente A ──TLS──► Servidor de control ◄──TLS── Cliente B
-     │              cuentas · amigos · presencia     │
-     │              señalización · elige relay       │
-     │                                               │
-     └──TLS──────►  Relay (uno o varios)  ◄──TLS─────┘
-                    empareja y reenvía bytes
-          ═══════ cifrado Noise de extremo a extremo ═══════
+ Client A ──TLS──► Control server ◄──TLS── Client B
+     │             accounts · friends · presence │
+     │             signalling · picks a relay    │
+     │                                           │
+     └──TLS──────►  Relay (one or more)  ◄──TLS──┘
+                    pairs and forwards bytes
+          ═══════ end-to-end Noise encryption ═══════
 ```
 
-| Crate | Contenido |
+| Crate | Contents |
 | --- | --- |
-| `crates/proto` | Protocolo, tickets y TLS compartidos |
-| `crates/server` | Binario `transfer-server`: control, relay y base de datos SQLite |
-| `crates/client-core` | Motor del cliente: sesión, reconexión, cifrado y transferencias |
-| `crates/app` | App de escritorio Tauri 2: tray, ventana y notificaciones |
+| `crates/proto` | Shared protocol, tickets and TLS |
+| `crates/server` | `transfer-server` binary: control, relay and SQLite database |
+| `crates/client-core` | Client engine: session, reconnection, encryption and transfers |
+| `crates/app` | Tauri 2 desktop app: tray, window and notifications |
 
-## Puesta en marcha local
+## Running locally
 
-Requiere Rust estable. En Windows también hacen falta las Build Tools de Visual Studio; WebView2 ya viene con Windows 11.
+Requires stable Rust. On Windows you also need the Visual Studio Build Tools; WebView2 ships with Windows 11.
 
 ```bash
 cargo build --release -p transfer-server -p transfer-app
 ```
 
-Arranca el servidor en una terminal:
+Start the server in a terminal:
 
 ```bash
 ./target/release/transfer-server all
 ```
 
-Crea `data/` y muestra la `fingerprint` del certificado autofirmado. Abre `target/release/transfer.exe`, despliega **Servidor**, pega esa huella y crea la cuenta.
+It creates `data/` and prints the `fingerprint` of its self-signed certificate. Open `target/release/transfer.exe`, expand **Server**, paste that fingerprint and create an account.
 
-Para probar dos clientes en un mismo equipo, lanza el segundo con otros datos. En PowerShell:
+To try two clients on the same machine, start the second one with its own data. In PowerShell:
 
 ```powershell
 $env:TRANSFER_DATA_DIR = "$env:TEMP\transfer-b"; $env:WEBVIEW2_USER_DATA_FOLDER = "$env:TEMP\transfer-b\wv"; .\target\release\transfer.exe
 ```
 
-## Despliegue
+## Deployment
 
-### Un solo servidor
+### Single server
 
-Abre los puertos TCP 7443 (control) y 7444 (relay). `--relay-public-addr` es obligatorio: es la dirección que reciben los clientes, y su valor por defecto solo sirve en local.
+Open TCP ports 7443 (control) and 7444 (relay). `--relay-public-addr` is required: it is the address clients are given, and its default only works locally.
 
 ```bash
-TRANSFER_DATA_DIR=/var/lib/transfer transfer-server all --relay-public-addr mi-servidor.com:7444
+TRANSFER_DATA_DIR=/var/lib/transfer transfer-server all --relay-public-addr my-server.com:7444
 ```
 
-También hay `Dockerfile` y `docker-compose.yml`. Pon la dirección pública en `.env` como `RELAY_PUBLIC_ADDR=mi-servidor.com:7444` y arranca:
+There is also a `Dockerfile` and a `docker-compose.yml`. Put the public address in `.env` as `RELAY_PUBLIC_ADDR=my-server.com:7444` and start it:
 
 ```bash
 docker compose up -d --build
 ```
 
-La huella del certificado aparece en los logs y se conserva entre reinicios, igual que las cuentas, en el volumen `transfer-data`:
+The certificate fingerprint shows up in the logs and survives restarts, like the accounts, in the `transfer-data` volume:
 
 ```bash
 docker compose logs transfer
 ```
 
-### Varios relays
+### Several relays
 
-Genera un secreto y úsalo en todos los servidores:
+Generate a secret and use it on every server:
 
 ```bash
 openssl rand -hex 32
 ```
 
-En el servidor de control:
+On the control server:
 
 ```bash
-TRANSFER_RELAY_SECRET=<secreto> transfer-server control
+TRANSFER_RELAY_SECRET=<secret> transfer-server control
 ```
 
-En cada relay:
+On each relay:
 
 ```bash
-TRANSFER_RELAY_SECRET=<secreto> transfer-server relay --control-addr control.mi-dominio.com:7443 --control-fingerprint <huella> --relay-public-addr relay1.mi-dominio.com:7444
+TRANSFER_RELAY_SECRET=<secret> transfer-server relay --control-addr control.my-domain.com:7443 --control-fingerprint <fingerprint> --relay-public-addr relay1.my-domain.com:7444
 ```
 
-Cada relay se registra solo e informa de su carga; el control asigna cada transferencia al menos ocupado.
+Each relay registers itself and reports its load; the control server assigns each transfer to the least busy one.
 
-### Certificado de control
+### Control certificate
 
-Sin configuración se usa un certificado autofirmado y cada cliente debe pegar su huella. Con uno de Let's Encrypt, los clientes dejan la huella vacía:
+With no configuration a self-signed certificate is used and every client has to paste its fingerprint. With a Let's Encrypt certificate, clients leave the fingerprint empty:
 
 ```bash
-transfer-server all --tls-cert fullchain.pem --tls-key privkey.pem --relay-public-addr mi-servidor.com:7444
+transfer-server all --tls-cert fullchain.pem --tls-key privkey.pem --relay-public-addr my-server.com:7444
 ```
 
-Los relays siempre usan certificado autofirmado: el control entrega su huella a los clientes.
+Relays always use self-signed certificates: the control server hands their fingerprints to clients.
 
-## Cómo funciona una transferencia
+## How a transfer works
 
-1. El emisor cifra la lista de ficheros para el receptor y la envía como oferta. El servidor no ve nombres ni tamaños.
-2. Al aceptar, el control elige un relay y entrega a cada cliente un ticket firmado, válido 60 segundos, de un solo uso y ligado a ese relay.
-3. Ambos clientes se conectan al relay, que los empareja y pasa a reenviar bytes.
-4. Sobre ese túnel negocian una sesión `Noise_KK` con claves efímeras y sus claves de identidad.
-5. Cada fichero se escribe como `.part`, se verifica con BLAKE3 y solo entonces recibe su nombre definitivo.
+1. The sender encrypts the file list for the receiver and sends it as an offer. The server sees neither names nor sizes.
+2. On acceptance, the control server picks a relay and gives each client a signed ticket: valid for 60 seconds, single use and bound to that relay.
+3. Both clients connect to the relay, which pairs them and starts forwarding bytes.
+4. Over that tunnel they negotiate a `Noise_KK` session with ephemeral keys and their identity keys.
+5. Each file is written as `.part`, verified with BLAKE3, and only then given its final name.
 
-## Seguridad
+## Security
 
-- **Contraseñas:** Argon2id, con límite de intentos por IP y por usuario.
-- **Sesiones:** en el servidor solo se guarda el hash SHA-256 del token, que caduca tras 30 días sin uso.
-- **Claves de amigos:** se fijan la primera vez que se ven. Si cambian, las transferencias se bloquean hasta que el usuario confía en la clave nueva. Para protegerse de un servidor malicioso desde el primer momento, compara la huella por otra vía.
-- **Rutas recibidas:** se rechaza `..` y se neutralizan rutas absolutas, flujos alternativos de NTFS y nombres reservados de Windows. Los enlaces simbólicos no se envían.
+- **Passwords:** Argon2id, with attempt limits per IP and per user.
+- **Sessions:** the server only stores the SHA-256 hash of the token, which expires after 30 days without use.
+- **Friends' keys:** pinned the first time they are seen. If they change, transfers are blocked until the user trusts the new key. To be protected from a malicious server from the start, compare fingerprints through another channel.
+- **Received paths:** `..` is rejected, and absolute paths, NTFS alternate data streams and reserved Windows names are neutralised. Symbolic links are not sent.
 
-## Limitaciones conocidas
+## Known limitations
 
-- Una cuenta tiene un solo dispositivo activo: iniciar sesión en otro desconecta el anterior y cambia la clave.
-- Una transferencia interrumpida se reinicia desde cero.
-- Ambos usuarios deben estar conectados.
-- No hay recuperación de contraseña, verificación de correo ni borrado de cuenta.
-- El registro está abierto a cualquiera que alcance el servidor, con un límite por IP.
-- Cuota y ancho de banda de los relays no están limitados por usuario.
-- En el cliente, la clave de identidad y el token se guardan en la carpeta de datos del usuario sin cifrar. Son accesibles para cualquier programa que se ejecute con esa cuenta.
+- An account has a single active device: signing in on another one disconnects the previous one and changes the key.
+- An interrupted transfer starts again from scratch.
+- Both users must be online.
+- There is no password recovery, email verification or account deletion.
+- Registration is open to anyone who can reach the server, with a per-IP limit.
+- Relay quota and bandwidth are not limited per user.
+- On the client, the identity key and the token are stored unencrypted in the user's data folder. Any program running under that account can read them.
 
-## Desarrollo
+## Development
 
 ```bash
 cargo test --workspace
 ```
 
-Los tests de `crates/client-core/tests/e2e.rs` levantan servidor y relays reales y conectan clientes por TCP y TLS.
+The tests in `crates/client-core/tests/e2e.rs` start a real server and relays and connect clients over TCP and TLS.
 
-## Instalador de Windows
+## Windows installer
 
-Hace falta `tauri-cli`:
+You need `tauri-cli`:
 
 ```bash
 cargo install tauri-cli --version "^2" --locked
 ```
 
-Genera el instalador con un directorio de compilación propio, para que funcione aunque la app de `target/release` esté abierta:
+The build signs the update files, so it needs the signing key described under [Updates](#updates):
+
+```powershell
+$env:TAURI_SIGNING_PRIVATE_KEY = "$env:USERPROFILE\.tauri\transfer-updater.key"; $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = ""
+```
+
+Build the installer with its own build directory, so it works even while the app in `target/release` is open:
 
 ```bash
 cd crates/app && CARGO_TARGET_DIR=../../target/installer cargo tauri build
 ```
 
-El resultado queda en `target/installer/release/bundle/nsis/`. No requiere permisos de administrador: instala para el usuario actual y descarga WebView2 si falta.
+The result lands in `target/installer/release/bundle/nsis/`. It needs no administrator rights: it installs for the current user and downloads WebView2 if missing.
 
-El instalador añade la entrada de inicio con Windows y la opción **Enviar con Transfer** al menú contextual de ficheros y carpetas; la desinstalación las elimina. En Windows 11 esa opción aparece bajo **Mostrar más opciones**, porque el menú nuevo solo admite aplicaciones empaquetadas. Si el usuario desactivó el inicio automático en Ajustes, una actualización respeta esa decisión.
+The installer adds the start-with-Windows entry and a **Send with Transfer** option to the context menu of files and folders; uninstalling removes them. On Windows 11 that option appears under **Show more options**, because the new menu only accepts packaged apps. If the user turned off autostart in Settings, an update respects that choice.
 
-## Actualizaciones
+## Updates
 
-El cliente busca una versión nueva 20 segundos después de arrancar y luego cada 6 horas, en `latest.json` de la última release de GitHub. Si la hay, la descarga en segundo plano y comprueba su firma. Después avisa con una notificación, un aviso en la ventana y la opción **Instalar la versión…** del icono de la bandeja. La actualización se instala cuando el usuario lo pide, o al elegir **Salir**. Si hay transferencias en curso, pide confirmación antes de reiniciar. **Buscar actualizaciones** comprueba al momento, desde la bandeja o desde Ajustes.
+The client looks for a new version 20 seconds after starting and then every 6 hours, in `latest.json` of the latest GitHub release. If there is one, it downloads it in the background and checks its signature. It then announces it with a notification, a banner in the window and an **Install version…** entry in the tray menu. The update is installed when the user asks for it, or on **Quit**. If transfers are in progress, it asks for confirmation before restarting. **Check for updates** checks right away, from the tray or from Settings.
 
-Las actualizaciones van firmadas con una clave propia, independiente del certificado de Windows. La clave pública está en `tauri.conf.json`. La privada se genera una vez fuera del repositorio:
+Updates are signed with a key of their own, separate from any Windows code-signing certificate. The public key is in `tauri.conf.json`. The private key is generated once, outside the repository:
 
 ```bash
 cargo tauri signer generate -w "$env:USERPROFILE\.tauri\transfer-updater.key"
 ```
 
-Guarda una copia de esa clave: si se pierde, los clientes instalados no aceptarán más actualizaciones y habrá que reinstalarlos a mano. Para compilar el instalador hace falta indicarla:
+Keep a backup of that key: if it is lost, installed clients will not accept any more updates and will have to be reinstalled by hand.
+
+To publish a version, with everything committed and the GitHub CLI signed in:
 
 ```bash
-$env:TAURI_SIGNING_PRIVATE_KEY = "$env:USERPROFILE\.tauri\transfer-updater.key"; $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = ""
+.\scripts\release.ps1 -Version 0.2.1 -Notes "What changed"
 ```
 
-Para publicar una versión, con todo confirmado en git y la GitHub CLI con la sesión iniciada:
-
-```bash
-.\scripts\release.ps1 -Version 0.2.1 -Notes "Qué cambia"
-```
-
-El script cambia la versión, compila y firma el instalador y genera `latest.json`. Después hace commit, crea la etiqueta, hace push y publica la release. Los clientes la reciben en su siguiente comprobación.
+The script bumps the version, builds and signs the installer and generates `latest.json`. It then commits, tags, pushes and publishes the release. Clients pick it up on their next check.

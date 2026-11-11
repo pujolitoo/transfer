@@ -74,9 +74,9 @@ pub fn seal(identity: &Identity, peer: &[u8], prologue: &[u8], plain: &[u8]) -> 
 
 pub fn open(identity: &Identity, peer: &[u8], prologue: &[u8], sealed: &[u8]) -> Result<Vec<u8>> {
     fn next<'a>(input: &mut &'a [u8]) -> Result<&'a [u8]> {
-        let (len, rest) = input.split_first_chunk::<2>().context("oferta truncada")?;
+        let (len, rest) = input.split_first_chunk::<2>().context("truncated offer")?;
         let len = u16::from_be_bytes(*len) as usize;
-        let (chunk, rest) = rest.split_at_checked(len).context("oferta truncada")?;
+        let (chunk, rest) = rest.split_at_checked(len).context("truncated offer")?;
         *input = rest;
         Ok(chunk)
     }
@@ -142,7 +142,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Tunnel<S> {
 
     pub async fn send(&mut self, kind: u8, payload: &[u8]) -> Result<()> {
         if payload.len() > MAX_PAYLOAD {
-            bail!("mensaje de túnel demasiado grande");
+            bail!("tunnel message too large");
         }
         self.plain[0] = kind;
         self.plain[1..=payload.len()].copy_from_slice(payload);
@@ -156,7 +156,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Tunnel<S> {
         let n = self.noise.read_message(&self.cipher[..n], &mut self.plain)?;
         match self.plain[..n].split_first() {
             Some((kind, payload)) => Ok((*kind, payload)),
-            None => bail!("mensaje de túnel vacío"),
+            None => bail!("empty tunnel message"),
         }
     }
 
@@ -217,8 +217,8 @@ mod tests {
             Tunnel::establish(y, &b, &a.public, b"ctx", false),
         );
         let (mut left, mut right) = (left.unwrap(), right.unwrap());
-        left.send(9, b"hola").await.unwrap();
+        left.send(9, b"hello").await.unwrap();
         let (kind, payload) = right.recv().await.unwrap();
-        assert_eq!((kind, payload), (9, &b"hola"[..]));
+        assert_eq!((kind, payload), (9, &b"hello"[..]));
     }
 }

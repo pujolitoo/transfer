@@ -71,11 +71,11 @@ pub fn scan(paths: &[PathBuf]) -> Result<(Manifest, Vec<PathBuf>)> {
     let mut sources = Vec::new();
     for root in paths {
         let meta = std::fs::symlink_metadata(root)
-            .with_context(|| format!("no se puede leer {}", root.display()))?;
+            .with_context(|| format!("cannot read {}", root.display()))?;
         let name = root
             .file_name()
             .and_then(|n| n.to_str())
-            .with_context(|| format!("nombre no válido: {}", root.display()))?;
+            .with_context(|| format!("invalid name: {}", root.display()))?;
         if meta.is_file() {
             files.push(FileEntry { path: name.to_string(), size: meta.len() });
             sources.push(root.clone());
@@ -89,7 +89,7 @@ pub fn scan(paths: &[PathBuf]) -> Result<(Manifest, Vec<PathBuf>)> {
                 let mut path = name.to_string();
                 for part in relative.components() {
                     path.push('/');
-                    path.push_str(part.as_os_str().to_str().context("nombre no válido")?);
+                    path.push_str(part.as_os_str().to_str().context("invalid name")?);
                 }
                 files.push(FileEntry { path, size: entry.metadata()?.len() });
                 sources.push(entry.into_path());
@@ -97,7 +97,7 @@ pub fn scan(paths: &[PathBuf]) -> Result<(Manifest, Vec<PathBuf>)> {
         }
     }
     if files.is_empty() {
-        bail!("no hay ficheros que enviar");
+        bail!("there are no files to send");
     }
     Ok((Manifest { files }, sources))
 }
@@ -168,7 +168,7 @@ pub async fn remove_part(path: &Path) {
             _ => return,
         }
     }
-    tracing::warn!("no se pudo borrar {}", path.display());
+    tracing::warn!("could not delete {}", path.display());
 }
 
 /// Connects to the relay and transfers everything. `progress` receives the
@@ -186,22 +186,22 @@ pub async fn run(
     let config = tls::client_config(Some(&relay.fingerprint))?;
     let mut stream = timeout(CONNECT_TIMEOUT, tls::connect(&relay.addr, config))
         .await
-        .context("el relay no responde")?
-        .context("no se pudo conectar al relay")?;
+        .context("the relay is not responding")?
+        .context("could not connect to the relay")?;
     write_frame(&mut stream, &TunnelHello { ticket }).await?;
     let status: TunnelStatus = timeout(PAIR_TIMEOUT, read_frame(&mut stream))
         .await
-        .context("el otro extremo no se conectó")?
-        .context("el relay cerró la conexión")?;
+        .context("the other side did not connect")?
+        .context("the relay closed the connection")?;
     if !status.paired {
-        bail!(status.error.unwrap_or_else(|| "el relay rechazó el túnel".into()));
+        bail!(status.error.unwrap_or_else(|| "the relay rejected the tunnel".into()));
     }
 
     let context = tunnel_context(plan);
     let mut tunnel =
         Tunnel::establish(stream, identity, &plan.peer_key, &context, plan.sending)
             .await
-            .context("no se pudo verificar la identidad del otro extremo")?;
+            .context("could not verify the identity of the other side")?;
     progress(0);
     let saved = if plan.sending {
         send_files(&mut tunnel, plan, progress).await?;
@@ -226,7 +226,7 @@ where
     for (entry, source) in plan.files.iter().zip(&plan.sources) {
         let mut file = File::open(source)
             .await
-            .with_context(|| format!("no se puede abrir {}", source.display()))?;
+            .with_context(|| format!("cannot open {}", source.display()))?;
         let mut hasher = blake3::Hasher::new();
         let mut sent = 0u64;
         loop {
@@ -236,12 +236,12 @@ where
             }
             let n = file.read(&mut buf[..want]).await?;
             if n == 0 {
-                bail!("{} ha cambiado durante el envío", source.display());
+                bail!("{} changed while being sent", source.display());
             }
             hasher.update(&buf[..n]);
             timeout(IO_TIMEOUT, tunnel.send(MSG_DATA, &buf[..n]))
                 .await
-                .context("el otro extremo no recibe datos")??;
+                .context("the other side is not receiving data")??;
             sent += n as u64;
             done += n as u64;
             progress(done);
@@ -251,9 +251,9 @@ where
     tunnel.send(MSG_ALL_DONE, &[]).await?;
     let (kind, _) = timeout(IO_TIMEOUT, tunnel.recv())
         .await
-        .context("sin confirmación del receptor")??;
+        .context("no confirmation from the receiver")??;
     if kind != MSG_ACK {
-        bail!("respuesta inesperada del receptor");
+        bail!("unexpected response from the receiver");
     }
     Ok(())
 }
@@ -273,7 +273,7 @@ where
     let mut done = 0u64;
     let mut first_saved = None;
     for entry in &plan.files {
-        let relative = safe_relative_path(&entry.path).context("ruta no válida en la oferta")?;
+        let relative = safe_relative_path(&entry.path).context("invalid path in the offer")?;
         let target = free_path(&plan.dest.join(relative));
         if let Some(parent) = target.parent() {
             fs::create_dir_all(parent).await?;
@@ -287,13 +287,13 @@ where
         loop {
             let (kind, payload) = timeout(IO_TIMEOUT, tunnel.recv())
                 .await
-                .context("el emisor ha dejado de enviar")?
-                .context("se ha perdido la conexión con el emisor")?;
+                .context("the sender stopped sending")?
+                .context("lost the connection to the sender")?;
             match kind {
                 MSG_DATA => {
                     written += payload.len() as u64;
                     if written > entry.size {
-                        bail!("el emisor envió más datos de los anunciados");
+                        bail!("the sender sent more data than announced");
                     }
                     hasher.update(payload);
                     file.write_all(payload).await?;
@@ -302,11 +302,11 @@ where
                 }
                 MSG_FILE_END => {
                     if written != entry.size || payload != hasher.finalize().as_bytes() {
-                        bail!("{} ha llegado corrupto", entry.path);
+                        bail!("{} arrived corrupted", entry.path);
                     }
                     break;
                 }
-                _ => bail!("mensaje inesperado del emisor"),
+                _ => bail!("unexpected message from the sender"),
             }
         }
         file.flush().await?;
@@ -320,9 +320,9 @@ where
     }
     let (kind, _) = timeout(IO_TIMEOUT, tunnel.recv())
         .await
-        .context("el emisor no cerró la transferencia")??;
+        .context("the sender did not finish the transfer")??;
     if kind != MSG_ALL_DONE {
-        bail!("el emisor envió más ficheros de los anunciados");
+        bail!("the sender sent more files than announced");
     }
     tunnel.send(MSG_ACK, &[]).await?;
     Ok(first_saved)
@@ -357,7 +357,7 @@ mod tests {
         assert_eq!(safe("trailing. "), PathBuf::from("trailing"));
         assert_eq!(safe("NUL"), PathBuf::from("_NUL"));
         assert_eq!(safe("con.txt"), PathBuf::from("_con.txt"));
-        assert_eq!(safe("carpeta/ok.txt"), PathBuf::from("carpeta").join("ok.txt"));
+        assert_eq!(safe("folder/ok.txt"), PathBuf::from("folder").join("ok.txt"));
     }
 
     #[test]
@@ -374,19 +374,19 @@ mod tests {
     #[test]
     fn location_of_several_files_is_their_top_level_item() {
         let dest = Path::new("descargas");
-        let file = dest.join("fotos").join("2026").join("a.jpg");
+        let file = dest.join("photos").join("2026").join("a.jpg");
         assert_eq!(saved_location(dest, &file, 1), file);
-        assert_eq!(saved_location(dest, &file, 3), dest.join("fotos"));
+        assert_eq!(saved_location(dest, &file, 3), dest.join("photos"));
     }
 
     #[test]
     fn scan_walks_folders_with_relative_paths() {
         let dir = tempfile::tempdir().unwrap();
-        let root = dir.path().join("fotos");
+        let root = dir.path().join("photos");
         std::fs::create_dir_all(root.join("2026")).unwrap();
         std::fs::write(root.join("2026").join("a.jpg"), b"123").unwrap();
         let (manifest, sources) = scan(&[root]).unwrap();
-        assert_eq!(manifest.files[0].path, "fotos/2026/a.jpg");
+        assert_eq!(manifest.files[0].path, "photos/2026/a.jpg");
         assert_eq!(manifest.total_bytes(), 3);
         assert_eq!(sources.len(), 1);
     }

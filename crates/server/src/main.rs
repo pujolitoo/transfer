@@ -12,7 +12,7 @@ use transfer_server::relay::{register_loop, Relay};
 use transfer_server::SharedSecret;
 
 #[derive(Parser)]
-#[command(version, about = "Servidor de control y relays de Transfer")]
+#[command(version, about = "Transfer control server and relays")]
 struct Cli {
     #[command(subcommand)]
     mode: Mode,
@@ -20,26 +20,26 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Mode {
-    /// Control y un relay en el mismo proceso: lo más simple para un solo servidor.
+    /// Control and a relay in one process: the simplest setup for a single server.
     All {
         #[command(flatten)]
         control: ControlArgs,
         #[command(flatten)]
         relay: RelayArgs,
     },
-    /// Solo cuentas, amigos y señalización.
+    /// Only accounts, friends and signalling.
     Control {
         #[command(flatten)]
         control: ControlArgs,
     },
-    /// Solo relay; se registra en un servidor de control remoto.
+    /// Only a relay, which registers with a remote control server.
     Relay {
         #[command(flatten)]
         relay: RelayArgs,
-        /// host:puerto del servidor de control.
+        /// host:port of the control server.
         #[arg(long, env = "TRANSFER_CONTROL_ADDR")]
         control_addr: String,
-        /// Huella SHA-256 del certificado de control, si es autofirmado.
+        /// SHA-256 fingerprint of the control certificate, if self-signed.
         #[arg(long, env = "TRANSFER_CONTROL_FINGERPRINT")]
         control_fingerprint: Option<String>,
     },
@@ -49,7 +49,7 @@ enum Mode {
 struct ControlArgs {
     #[arg(long, env = "TRANSFER_CONTROL_LISTEN", default_value = "0.0.0.0:7443")]
     control_listen: String,
-    /// Certificado PEM de una CA. Sin él se usa uno autofirmado persistente.
+    /// PEM certificate from a CA. Without it a persistent self-signed one is used.
     #[arg(long, env = "TRANSFER_TLS_CERT", requires = "tls_key")]
     tls_cert: Option<PathBuf>,
     #[arg(long, env = "TRANSFER_TLS_KEY", requires = "tls_cert")]
@@ -60,12 +60,12 @@ struct ControlArgs {
 struct RelayArgs {
     #[arg(long, env = "TRANSFER_RELAY_LISTEN", default_value = "0.0.0.0:7444")]
     relay_listen: String,
-    /// host:puerto con el que los clientes llegan a este relay.
+    /// host:port that clients use to reach this relay.
     #[arg(long, env = "TRANSFER_RELAY_PUBLIC_ADDR", default_value = "127.0.0.1:7444")]
     relay_public_addr: String,
     #[arg(long, env = "TRANSFER_RELAY_ID")]
     relay_id: Option<String>,
-    /// Túneles simultáneos admitidos.
+    /// Concurrent tunnels allowed.
     #[arg(long, env = "TRANSFER_RELAY_CAPACITY", default_value_t = 256)]
     relay_capacity: u32,
 }
@@ -77,13 +77,13 @@ fn data_dir() -> PathBuf {
 
 fn load_secret(dir: &Path) -> anyhow::Result<SharedSecret> {
     if let Ok(secret) = std::env::var("TRANSFER_RELAY_SECRET") {
-        let secret = hex::decode(secret.trim()).context("TRANSFER_RELAY_SECRET debe ser hex")?;
-        anyhow::ensure!(secret.len() >= 32, "TRANSFER_RELAY_SECRET necesita al menos 32 bytes");
+        let secret = hex::decode(secret.trim()).context("TRANSFER_RELAY_SECRET must be hex")?;
+        anyhow::ensure!(secret.len() >= 32, "TRANSFER_RELAY_SECRET needs at least 32 bytes");
         return Ok(Arc::new(secret));
     }
     let path = dir.join("relay.secret");
     if let Ok(existing) = std::fs::read_to_string(&path) {
-        return Ok(Arc::new(hex::decode(existing.trim()).context("relay.secret corrupto")?));
+        return Ok(Arc::new(hex::decode(existing.trim()).context("relay.secret is corrupt")?));
     }
     let mut secret = vec![0u8; 32];
     rand::rngs::OsRng.fill_bytes(&mut secret);
@@ -101,7 +101,7 @@ fn control_identity(dir: &Path, args: &ControlArgs) -> anyhow::Result<tls::Ident
 async fn run_control(args: ControlArgs, hub: Arc<Hub>, identity: tls::Identity) -> anyhow::Result<()> {
     let listener = TcpListener::bind(&args.control_listen)
         .await
-        .with_context(|| format!("no se pudo escuchar en {}", args.control_listen))?;
+        .with_context(|| format!("could not listen on {}", args.control_listen))?;
     tracing::info!(addr = %args.control_listen, fingerprint = %identity.fingerprint, "control listening");
     hub.serve(listener, TlsAcceptor::from(identity.config)).await;
     Ok(())
@@ -126,7 +126,7 @@ async fn start_relay(
     let identity = tls::self_signed_identity(dir, "relay")?;
     let listener = TcpListener::bind(&args.relay_listen)
         .await
-        .with_context(|| format!("no se pudo escuchar en {}", args.relay_listen))?;
+        .with_context(|| format!("could not listen on {}", args.relay_listen))?;
     tracing::info!(addr = %args.relay_listen, public = %args.relay_public_addr, "relay listening");
     let relay = Relay::new(
         id,

@@ -30,12 +30,12 @@ function render() {
   const offer = current();
   if (!offer) return;
   const count = offer.file_count;
-  $("title").textContent = `${offer.peer} quiere enviarte un fichero`;
-  $("name").textContent = count > 1 ? `${offer.first_file} y ${count - 1} más` : offer.first_file;
+  $("title").textContent = `${offer.peer} wants to send you a file`;
+  $("name").textContent = count > 1 ? `${offer.first_file} and ${count - 1} more` : offer.first_file;
   $("name").title = offer.first_file;
   $("meta").textContent = formatBytes(offer.total_bytes);
   $("open").hidden = pending.size < 2;
-  $("open").textContent = `Ver ${pending.size} solicitudes`;
+  $("open").textContent = `See ${pending.size} requests`;
   $("accept").disabled = busy;
   $("decline").disabled = busy;
 }

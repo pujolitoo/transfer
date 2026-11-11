@@ -202,7 +202,7 @@ impl Inner {
     async fn call(&self, request: Request) -> Result<Response> {
         let (rx, tx, id) = {
             let link = lock(&self.link);
-            let link = link.as_ref().context("sin conexión con el servidor")?;
+            let link = link.as_ref().context("not connected to the server")?;
             let id = self.next_call.fetch_add(1, Ordering::Relaxed);
             let (tx, rx) = oneshot::channel();
             lock(&link.pending).insert(id, tx);
@@ -210,11 +210,11 @@ impl Inner {
         };
         tx.send(Inbound::Req { id, body: request })
             .await
-            .map_err(|_| anyhow!("sin conexión con el servidor"))?;
+            .map_err(|_| anyhow!("not connected to the server"))?;
         let answer = timeout(CALL_TIMEOUT, rx)
             .await
-            .context("el servidor no responde")?
-            .map_err(|_| anyhow!("se ha perdido la conexión con el servidor"))?;
+            .context("the server is not responding")?
+            .map_err(|_| anyhow!("lost the connection to the server"))?;
         Ok(answer?)
     }
 
@@ -273,7 +273,7 @@ impl Inner {
     async fn refresh_friends(&self) -> Result<()> {
         match self.call(Request::Friends).await? {
             Response::Friends { friends } => self.apply_friends(friends),
-            _ => bail!("respuesta inesperada del servidor"),
+            _ => bail!("unexpected response from the server"),
         }
     }
 
@@ -284,16 +284,16 @@ impl Inner {
             .friends
             .iter()
             .find(|f| f.info.username == username && f.info.status == FriendStatus::Accepted)
-            .ok_or_else(|| anyhow!("{username} no está en tu lista de amigos"))?;
+            .ok_or_else(|| anyhow!("{username} is not in your friends list"))?;
         if friend.info.key_changed {
-            bail!("la clave de {username} ha cambiado: compruébala antes de transferir");
+            bail!("{username}'s key has changed: verify it before transferring");
         }
-        let key = friend.key.as_ref().context("clave del amigo no disponible")?;
+        let key = friend.key.as_ref().context("friend's key not available")?;
         Ok(B64.decode(key)?)
     }
 
     fn me(&self) -> Result<String> {
-        lock(&self.state).username.clone().context("no has iniciado sesión")
+        lock(&self.state).username.clone().context("you are not signed in")
     }
 
     async fn handle_offer(self: Arc<Self>, from: String, id: String, sealed: String) {
@@ -325,7 +325,7 @@ impl Inner {
                 self.emit(EngineEvent::Transfer { transfer: view });
             }
             Err(e) => {
-                tracing::warn!("oferta de {from} rechazada: {e:#}");
+                tracing::warn!("offer from {from} rejected: {e:#}");
                 let request = Request::OfferRespond { transfer_id: id, accept: false };
                 let _ = self.call(request).await;
             }
@@ -345,7 +345,7 @@ impl Inner {
         if manifest.files.is_empty()
             || manifest.files.iter().any(|f| transfer::safe_relative_path(&f.path).is_none())
         {
-            bail!("lista de ficheros no válida");
+            bail!("invalid file list");
         }
         Ok(manifest)
     }
@@ -356,7 +356,7 @@ impl Inner {
                 let inner = self.clone();
                 tokio::spawn(async move {
                     if let Err(e) = inner.refresh_friends().await {
-                        tracing::warn!("no se pudo actualizar amigos: {e:#}");
+                        tracing::warn!("could not refresh friends: {e:#}");
                     }
                 });
             }
@@ -374,7 +374,7 @@ impl Inner {
                 self.finish_transfer(
                     &transfer_id,
                     TransferState::Declined,
-                    Some("Han rechazado el envío".into()),
+                    Some("They declined the transfer".into()),
                 );
             }
             Event::TransferReady { transfer_id, relay, ticket } => {
@@ -387,7 +387,7 @@ impl Inner {
                 }
             }
             Event::SessionReplaced => {
-                self.end_session(Some("Has iniciado sesión en otro dispositivo".into()));
+                self.end_session(Some("You signed in on another device".into()));
             }
         }
     }
@@ -395,7 +395,7 @@ impl Inner {
     fn plan_for(&self, id: &str) -> Result<(Plan, CancellationToken)> {
         let me = self.me()?;
         let state = lock(&self.state);
-        let entry = state.transfers.get(id).context("transferencia desconocida")?;
+        let entry = state.transfers.get(id).context("unknown transfer")?;
         let peer = entry.view.peer.clone();
         let (sender, receiver) =
             if entry.view.sending { (me, peer.clone()) } else { (peer.clone(), me) };
@@ -465,7 +465,7 @@ impl Inner {
                 self.finish_transfer(&id, TransferState::Done, None);
             }
             Some(Err(e)) => {
-                tracing::warn!("transferencia {id} fallida: {e:#}");
+                tracing::warn!("transfer {id} failed: {e:#}");
                 self.finish_transfer(&id, TransferState::Failed, Some(format!("{e:#}")));
             }
             None => {}
@@ -489,7 +489,7 @@ impl Inner {
             state.transfers.iter().map(|(id, t)| (id.clone(), t.cancel.clone())).collect()
         };
         for (id, cancel) in transfers {
-            self.finish_transfer(&id, TransferState::Cancelled, Some("Sesión cerrada".into()));
+            self.finish_transfer(&id, TransferState::Cancelled, Some("Signed out".into()));
             cancel.cancel();
         }
         self.emit_connection(reason);
@@ -511,7 +511,7 @@ impl Inner {
             self.finish_transfer(
                 &id,
                 TransferState::Failed,
-                Some("Se ha perdido la conexión con el servidor".into()),
+                Some("Lost the connection to the server".into()),
             );
         }
     }
@@ -529,10 +529,10 @@ impl Inner {
                 Ok(true) | Ok(false) if stop.is_cancelled() => return,
                 Ok(true) => {}
                 Ok(false) => {
-                    self.end_session(Some("La sesión ha caducado".into()));
+                    self.end_session(Some("The session has expired".into()));
                     return;
                 }
-                Err(e) => tracing::info!("sin conexión con el servidor: {e:#}"),
+                Err(e) => tracing::info!("not connected to the server: {e:#}"),
             }
             *lock(&self.link) = None;
             self.fail_pending_offers();
@@ -556,7 +556,7 @@ impl Inner {
         let config = client_tls(&settings)?;
         let mut stream = timeout(CONNECT_TIMEOUT, tls::connect(&settings.server, config))
             .await
-            .context("tiempo de conexión agotado")??;
+            .context("connection timed out")??;
         let resume = Request::Resume { token: session.token.clone() };
         write_frame(&mut stream, &Inbound::Req { id: 0, body: resume }).await?;
         loop {
@@ -589,7 +589,7 @@ impl Inner {
         let inner = self.clone();
         tokio::spawn(async move {
             if let Err(e) = inner.refresh_friends().await {
-                tracing::warn!("no se pudo cargar amigos: {e:#}");
+                tracing::warn!("could not load friends: {e:#}");
             }
         });
 
@@ -597,7 +597,7 @@ impl Inner {
         loop {
             tokio::select! {
                 _ = stop.cancelled() => return Ok(true),
-                _ = closed.cancelled() => bail!("conexión cerrada"),
+                _ = closed.cancelled() => bail!("connection closed"),
                 _ = ping.tick() => {
                     let _ = tx.try_send(Inbound::Req { id: 0, body: Request::Ping });
                 }
@@ -682,19 +682,19 @@ impl Engine {
         let config = client_tls(&settings)?;
         let mut stream = timeout(CONNECT_TIMEOUT, tls::connect(&settings.server, config))
             .await
-            .context("el servidor no responde")?
-            .with_context(|| format!("no se pudo conectar a {}", settings.server))?;
+            .context("the server is not responding")?
+            .with_context(|| format!("could not connect to {}", settings.server))?;
         write_frame(&mut stream, &Inbound::Req { id: 1, body: request }).await?;
         let session = loop {
             match timeout(CALL_TIMEOUT, read_frame::<_, Outbound>(&mut stream))
                 .await
-                .context("el servidor no responde")??
+                .context("the server is not responding")??
             {
                 Outbound::Res { id: 1, body: Ok(Response::Session { username, token }) } => {
                     break SavedSession { username, token };
                 }
                 Outbound::Res { id: 1, body: Err(e) } => return Err(e.into()),
-                Outbound::Res { id: 1, .. } => bail!("respuesta inesperada del servidor"),
+                Outbound::Res { id: 1, .. } => bail!("unexpected response from the server"),
                 _ => {}
             }
         };
@@ -794,12 +794,12 @@ impl Engine {
             .iter()
             .find(|f| f.info.username == username)
             .and_then(|f| f.key.clone())
-            .context("clave del amigo no disponible")?;
+            .context("friend's key not available")?;
         state.pins.insert(username.to_string(), key);
         if let Some(friend) = state.friends.iter_mut().find(|f| f.info.username == username) {
             friend.info.key_changed = false;
         }
-        let me = state.username.clone().context("no has iniciado sesión")?;
+        let me = state.username.clone().context("you are not signed in")?;
         store::save_pins(&self.inner.dir, &me, &state.pins)?;
         self.inner.emit_friends(&state);
         Ok(())
@@ -811,13 +811,13 @@ impl Engine {
         let me = self.inner.me()?;
         let (manifest, sources) = tokio::task::spawn_blocking(move || transfer::scan(&paths))
             .await
-            .context("error al leer los ficheros")??;
+            .context("error reading the files")??;
         let id = uuid::Uuid::new_v4().to_string();
         let context = transfer::seal_context(&id, &me, to);
         let plain = serde_json::to_vec(&manifest)?;
         let sealed = B64.encode(crypto::seal(&self.inner.identity, &key, &context, &plain)?);
         if sealed.len() > transfer_proto::MAX_SEALED {
-            bail!("demasiados ficheros en un solo envío");
+            bail!("too many files in a single transfer");
         }
 
         let view = TransferView {

@@ -23,7 +23,7 @@
         "label": "popup",
         "create": false,
         "url": "popup.html",
-        "title": "Solicitud de fichero",
+        "title": "File request",
         "width": 360,
         "height": 150,
         "resizable": false,
@@ -38,7 +38,7 @@
         "label": "send",
         "create": false,
         "url": "send.html",
-        "title": "Enviar con Transfer",
+        "title": "Send with Transfer",
         "width": 380,
         "height": 440,
         "minWidth": 320,
@@ -66,11 +66,11 @@
     "createUpdaterArtifacts": true,
     "targets": ["nsis"],
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.ico"],
-    "shortDescription": "Transferencia de ficheros entre amigos",
+    "shortDescription": "File transfer between friends",
     "windows": {
       "nsis": {
         "installMode": "currentUser",
-        "languages": ["Spanish"],
+        "languages": ["English"],
         "installerIcon": "icons/icon.ico",
         "installerHooks": "installer-hooks.nsh"
       }

@@ -9,7 +9,7 @@
 !define FOLDER_VERB "Software\Classes\Directory\shell\Transfer"
 
 !macro WriteSendVerb KEY
-  WriteRegStr HKCU "${KEY}" "" "Enviar con Transfer"
+  WriteRegStr HKCU "${KEY}" "" "Send with Transfer"
   WriteRegStr HKCU "${KEY}" "Icon" "$INSTDIR\${MAINBINARYNAME}.exe,0"
   ; The default model hides the entry when more than 15 items are selected.
   WriteRegStr HKCU "${KEY}" "MultiSelectModel" "Player"

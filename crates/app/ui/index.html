@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,31 +10,31 @@
   <main id="auth" class="auth" hidden>
     <form id="auth-form" class="auth-card">
       <h1>Transfer</h1>
-      <p class="muted">Envía ficheros directamente a tus amigos, cifrados de extremo a extremo.</p>
+      <p class="muted">Send files straight to your friends, end-to-end encrypted.</p>
       <div class="segmented" role="tablist">
-        <button type="button" id="tab-login" role="tab" aria-selected="true">Iniciar sesión</button>
-        <button type="button" id="tab-register" role="tab" aria-selected="false">Crear cuenta</button>
+        <button type="button" id="tab-login" role="tab" aria-selected="true">Sign in</button>
+        <button type="button" id="tab-register" role="tab" aria-selected="false">Create account</button>
       </div>
-      <label>Usuario
+      <label>Username
         <input id="auth-user" autocomplete="username" autocapitalize="none" spellcheck="false" required>
       </label>
-      <label>Contraseña
+      <label>Password
         <input id="auth-pass" type="password" autocomplete="current-password" required>
       </label>
-      <label id="auth-pass2-row" hidden>Repite la contraseña
+      <label id="auth-pass2-row" hidden>Repeat password
         <input id="auth-pass2" type="password" autocomplete="new-password">
       </label>
       <details id="server-box">
-        <summary>Servidor</summary>
-        <label>Dirección
-          <input id="auth-server" placeholder="servidor.ejemplo.com:7443" spellcheck="false" required>
+        <summary>Server</summary>
+        <label>Address
+          <input id="auth-server" placeholder="server.example.com:7443" spellcheck="false" required>
         </label>
-        <label>Huella del certificado
-          <input id="auth-fingerprint" placeholder="Solo si el servidor es autofirmado" spellcheck="false">
+        <label>Certificate fingerprint
+          <input id="auth-fingerprint" placeholder="Only if the server is self-signed" spellcheck="false">
         </label>
       </details>
       <p id="auth-error" class="error" role="alert" hidden></p>
-      <button id="auth-submit" class="primary" type="submit">Entrar</button>
+      <button id="auth-submit" class="primary" type="submit">Sign in</button>
     </form>
   </main>
 
@@ -46,13 +46,13 @@
           <strong id="me-name"></strong>
           <span id="conn-label" class="muted small"></span>
         </div>
-        <button id="open-settings" class="icon" title="Ajustes" aria-label="Ajustes">
+        <button id="open-settings" class="icon" title="Settings" aria-label="Settings">
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0 6a2 2 0 1 1 0-4 2 2 0 0 1 0 4Zm9-1v-2l-2.2-.4a7 7 0 0 0-.6-1.4l1.3-1.9-1.4-1.4-1.9 1.3a7 7 0 0 0-1.4-.6L14 3h-2l-.4 2.2c-.5.1-1 .3-1.4.6L8.3 4.5 6.9 5.9l1.3 1.9c-.3.4-.5.9-.6 1.4L5.4 9.6 3 10v2.0l2.2.4c.1.5.3 1 .6 1.4l-1.3 1.9 1.4 1.4 1.9-1.3c.4.3.9.5 1.4.6L10 21h2l.4-2.2c.5-.1 1-.3 1.4-.6l1.9 1.3 1.4-1.4-1.3-1.9c.3-.4.5-.9.6-1.4L21 13Z"/></svg>
         </button>
       </header>
       <form id="add-friend" class="add-friend">
-        <input id="add-friend-input" placeholder="Añadir amigo por usuario" aria-label="Añadir amigo por usuario" spellcheck="false" autocapitalize="none">
-        <button type="submit" title="Enviar solicitud" aria-label="Enviar solicitud">+</button>
+        <input id="add-friend-input" placeholder="Add a friend by username" aria-label="Add a friend by username" spellcheck="false" autocapitalize="none">
+        <button type="submit" title="Send request" aria-label="Send request">+</button>
       </form>
       <p id="friend-error" class="error small" role="alert" hidden></p>
       <nav id="friends" class="friends"></nav>
@@ -61,20 +61,20 @@
     <section class="content">
       <div id="update-banner" class="update-banner" role="status" hidden>
         <span id="update-text"></span>
-        <button id="update-install" class="primary">Reiniciar y actualizar</button>
+        <button id="update-install" class="primary">Restart and update</button>
       </div>
       <header id="peer-header" class="peer-header"></header>
       <div id="dropzone" class="dropzone" hidden>
         <p id="drop-title"></p>
         <div class="row">
-          <button id="pick-files" class="primary">Elegir ficheros</button>
-          <button id="pick-folder">Elegir carpeta</button>
+          <button id="pick-files" class="primary">Choose files</button>
+          <button id="pick-folder">Choose folder</button>
         </div>
       </div>
       <p id="send-error" class="error" role="alert" hidden></p>
       <div class="section-title">
-        <h2>Transferencias</h2>
-        <button id="clear-finished" class="link" hidden>Limpiar terminadas</button>
+        <h2>Transfers</h2>
+        <button id="clear-finished" class="link" hidden>Clear finished</button>
       </div>
       <div id="transfers" class="transfers"></div>
     </section>
@@ -84,41 +84,41 @@
 
   <dialog id="settings">
     <form method="dialog" class="dialog-head">
-      <h2>Ajustes</h2>
-      <button class="icon" aria-label="Cerrar">✕</button>
+      <h2>Settings</h2>
+      <button class="icon" aria-label="Close">✕</button>
     </form>
     <section>
-      <h3>Tu huella</h3>
-      <p class="muted small">Compárala con tus amigos por otra vía para confirmar que hablas con ellos.</p>
+      <h3>Your fingerprint</h3>
+      <p class="muted small">Compare it with your friends through another channel to confirm you are talking to them.</p>
       <code id="my-fingerprint"></code>
     </section>
     <section>
-      <h3>Descargas</h3>
+      <h3>Downloads</h3>
       <p id="download-dir" class="path"></p>
       <div class="row">
-        <button id="change-download-dir">Cambiar carpeta</button>
-        <button id="open-download-dir">Abrir carpeta</button>
+        <button id="change-download-dir">Change folder</button>
+        <button id="open-download-dir">Open folder</button>
       </div>
     </section>
     <section>
-      <label class="check"><input id="autostart" type="checkbox"> Iniciar Transfer con el sistema</label>
+      <label class="check"><input id="autostart" type="checkbox"> Start Transfer with Windows</label>
     </section>
     <section>
-      <h3>Versión</h3>
+      <h3>Version</h3>
       <p id="version-text" class="muted small"></p>
-      <button id="check-updates">Buscar actualizaciones</button>
+      <button id="check-updates">Check for updates</button>
     </section>
     <section>
-      <h3>Cambiar contraseña</h3>
+      <h3>Change password</h3>
       <form id="password-form">
-        <input id="pass-current" type="password" placeholder="Contraseña actual" aria-label="Contraseña actual" autocomplete="current-password" required>
-        <input id="pass-next" type="password" placeholder="Contraseña nueva (mínimo 10 caracteres)" aria-label="Contraseña nueva" autocomplete="new-password" required>
+        <input id="pass-current" type="password" placeholder="Current password" aria-label="Current password" autocomplete="current-password" required>
+        <input id="pass-next" type="password" placeholder="New password (at least 10 characters)" aria-label="New password" autocomplete="new-password" required>
         <p id="password-message" class="small" role="status" hidden></p>
-        <button type="submit">Cambiar contraseña</button>
+        <button type="submit">Change password</button>
       </form>
     </section>
     <section>
-      <button id="logout" class="danger">Cerrar sesión</button>
+      <button id="logout" class="danger">Sign out</button>
     </section>
   </dialog>
 

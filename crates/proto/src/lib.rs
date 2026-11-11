@@ -141,35 +141,35 @@ pub enum Event {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, thiserror::Error)]
 #[serde(rename_all = "snake_case")]
 pub enum ApiError {
-    #[error("el usuario debe tener 3-32 caracteres: a-z, 0-9, punto, guion o guion bajo")]
+    #[error("usernames must be 3-32 characters: a-z, 0-9, dot, hyphen or underscore")]
     InvalidUsername,
-    #[error("la contraseña debe tener entre 10 y 128 caracteres")]
+    #[error("passwords must be between 10 and 128 characters")]
     WeakPassword,
-    #[error("ese nombre de usuario ya existe")]
+    #[error("that username is already taken")]
     UsernameTaken,
-    #[error("usuario o contraseña incorrectos")]
+    #[error("wrong username or password")]
     BadCredentials,
-    #[error("sesión caducada, vuelve a iniciar sesión")]
+    #[error("session expired, please sign in again")]
     Unauthorized,
-    #[error("demasiados intentos, espera unos minutos")]
+    #[error("too many attempts, wait a few minutes")]
     RateLimited,
-    #[error("ese usuario no existe")]
+    #[error("that user does not exist")]
     UserNotFound,
-    #[error("no puedes añadirte a ti mismo")]
+    #[error("you cannot add yourself")]
     SelfFriend,
-    #[error("solo puedes enviar ficheros a tus amigos")]
+    #[error("you can only send files to your friends")]
     NotFriends,
-    #[error("ese amigo no está conectado")]
+    #[error("that friend is offline")]
     PeerOffline,
-    #[error("esa transferencia ya no existe")]
+    #[error("that transfer no longer exists")]
     UnknownTransfer,
-    #[error("hay demasiadas transferencias pendientes")]
+    #[error("too many pending transfers")]
     TooManyTransfers,
-    #[error("no hay ningún relay disponible")]
+    #[error("no relay available")]
     NoRelay,
-    #[error("petición no válida")]
+    #[error("invalid request")]
     BadRequest,
-    #[error("error interno del servidor")]
+    #[error("internal server error")]
     Internal,
 }
 

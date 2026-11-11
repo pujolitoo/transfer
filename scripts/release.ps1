@@ -1,7 +1,7 @@
 # Publishes a new version of the client as a GitHub release, which installed
 # clients pick up through the updater.
 #
-#   .\scripts\release.ps1 -Version 0.2.1 -Notes "Qué cambia"
+#   .\scripts\release.ps1 -Version 0.2.1 -Notes "What changed"
 #
 # Needs the GitHub CLI logged in, a clean working tree and the signing key
 # created with `cargo tauri signer generate` (never commit it).
@@ -15,14 +15,14 @@ $root = Split-Path $PSScriptRoot -Parent
 Set-Location $root
 
 function Check([string]$what) {
-    if ($LASTEXITCODE -ne 0) { throw "$what falló (código $LASTEXITCODE)" }
+    if ($LASTEXITCODE -ne 0) { throw "$what failed (exit code $LASTEXITCODE)" }
 }
 
-if (-not (Test-Path $Key)) { throw "No existe la clave de firma $Key" }
-if (git status --porcelain) { throw "Hay cambios sin confirmar; haz commit antes de publicar" }
+if (-not (Test-Path $Key)) { throw "Signing key $Key does not exist" }
+if (git status --porcelain) { throw "There are uncommitted changes; commit before publishing" }
 $repo = gh repo view --json nameWithOwner --jq .nameWithOwner; Check "gh repo view"
 $tag = "v$Version"
-if (git tag --list $tag) { throw "La etiqueta $tag ya existe" }
+if (git tag --list $tag) { throw "Tag $tag already exists" }
 
 # The installed app compares this version with latest.json.
 $conf = 'crates\app\tauri.conf.json'
@@ -53,8 +53,8 @@ $manifest = [ordered]@{
 $latest = "$bundle\latest.json"
 $manifest | ConvertTo-Json -Depth 4 | Set-Content $latest -Encoding utf8NoBOM
 
-git commit -am "Versión $Version"; Check "git commit"
+git commit -am "Version $Version"; Check "git commit"
 git tag $tag; Check "git tag"
 git push origin HEAD $tag; Check "git push"
 gh release create $tag $setup "$setup.sig" $latest --title "Transfer $Version" --notes $Notes; Check "gh release create"
-"Publicada $tag en https://github.com/$repo/releases/tag/$tag"
+"Published $tag at https://github.com/$repo/releases/tag/$tag"

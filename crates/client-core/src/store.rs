@@ -39,12 +39,12 @@ fn load_json<T: DeserializeOwned>(path: &Path) -> Option<T> {
 pub fn load_identity(dir: &Path) -> Result<Identity> {
     let path = dir.join("identity.key");
     if let Ok(data) = std::fs::read(&path) {
-        anyhow::ensure!(data.len() == 64, "identity.key está corrupto");
+        anyhow::ensure!(data.len() == 64, "identity.key is corrupt");
         return Ok(Identity { private: data[..32].to_vec(), public: data[32..].to_vec() });
     }
     let identity = Identity::generate()?;
     let data = [identity.private.as_slice(), identity.public.as_slice()].concat();
-    write_private(&path, &data).context("no se pudo guardar la clave de identidad")?;
+    write_private(&path, &data).context("could not save the identity key")?;
     Ok(identity)
 }
 

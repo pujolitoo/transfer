@@ -14,21 +14,21 @@ function showError(message) {
 
 function renderHeader() {
   const { names } = model;
-  $("title").textContent = names.length === 1 ? `Enviar ${names[0]}` : `Enviar ${names.length} elementos`;
+  $("title").textContent = names.length === 1 ? `Send ${names[0]}` : `Send ${names.length} items`;
   $("title").title = names.join("\n");
   $("detail").textContent = names.length > 1 ? names.slice(0, 3).join(", ") + (names.length > 3 ? "…" : "") : "";
 }
 
 function hintFor(accepted) {
-  if (model.connection === "logged_out") return "Inicia sesión en Transfer para enviar ficheros.";
-  if (model.connection === "connecting") return "Conectando…";
-  if (!accepted.length) return "Todavía no tienes amigos. Añade alguno en Transfer.";
+  if (model.connection === "logged_out") return "Sign in to Transfer to send files.";
+  if (model.connection === "connecting") return "Connecting…";
+  if (!accepted.length) return "You have no friends yet. Add some in Transfer.";
   return null;
 }
 
 function friendRow(friend) {
   const usable = friend.online && !friend.key_changed && model.connection === "online";
-  const note = friend.key_changed ? "su clave ha cambiado" : friend.online ? null : "desconectado";
+  const note = friend.key_changed ? "their key has changed" : friend.online ? null : "offline";
   const row = document.createElement("button");
   row.className = "friend";
   row.disabled = !usable || model.busy;

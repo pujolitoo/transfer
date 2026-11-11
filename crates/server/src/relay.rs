@@ -110,12 +110,12 @@ impl Relay {
     fn admit(&self, token: &str) -> Result<ticket::Ticket, &'static str> {
         let now = now_secs();
         let ticket = ticket::verify(self.secret.as_ref(), token, &self.id, now)
-            .ok_or("ticket no válido")?;
+            .ok_or("invalid ticket")?;
         let mut used = self.used.lock().unwrap_or_else(|e| e.into_inner());
         used.retain(|_, expires| *expires > now);
         let key = (ticket.transfer_id.clone(), ticket.role);
         if used.insert(key, ticket.expires_at).is_some() {
-            return Err("ticket ya utilizado");
+            return Err("ticket already used");
         }
         Ok(ticket)
     }
@@ -125,7 +125,7 @@ impl Relay {
         let mut stream = timeout(HANDSHAKE_TIMEOUT, acceptor.accept(tcp)).await??;
         let hello: TunnelHello = timeout(HANDSHAKE_TIMEOUT, read_frame(&mut stream)).await??;
         let Some(slot) = slot else {
-            return reject(&mut stream, "relay saturado").await;
+            return reject(&mut stream, "relay is full").await;
         };
         let ticket = match self.admit(&hello.ticket) {
             Ok(ticket) => ticket,
@@ -156,7 +156,7 @@ impl Relay {
                 let _ = peer.send(stream);
                 Ok(())
             }
-            Err(None) => reject(&mut stream, "rol duplicado").await,
+            Err(None) => reject(&mut stream, "duplicate role").await,
             Err(Some(rx)) => match timeout(PAIR_TIMEOUT, rx).await {
                 Ok(Ok(peer)) => {
                     let result = pipe(stream, peer).await;
@@ -168,7 +168,7 @@ impl Relay {
                         .lock()
                         .unwrap_or_else(|e| e.into_inner())
                         .remove(&ticket.transfer_id);
-                    reject(&mut stream, "el otro extremo no se conectó").await
+                    reject(&mut stream, "the other side did not connect").await
                 }
             },
         }
@@ -241,7 +241,7 @@ pub async fn register_loop(
             write_frame(&mut stream, &Inbound::RelayHello(relay.hello())).await?;
             let answer: Outbound = read_frame(&mut stream).await?;
             if !matches!(answer, Outbound::Res { body: Ok(_), .. }) {
-                anyhow::bail!("el servidor de control rechazó este relay");
+                anyhow::bail!("the control server rejected this relay");
             }
             tracing::info!(addr = %relay.public_addr, "relay registered in {control_addr}");
             loop {

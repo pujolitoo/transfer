@@ -16,7 +16,7 @@ use crate::{ask, notify, text_err, CmdResult};
 /// Leaves time for the connection and the window before the first check.
 const FIRST_CHECK: Duration = Duration::from_secs(20);
 const CHECK_EVERY: Duration = Duration::from_secs(6 * 60 * 60);
-const CHECK_LABEL: &str = "Buscar actualizaciones";
+const CHECK_LABEL: &str = "Check for updates";
 
 /// An update already downloaded and verified against the public key.
 struct Ready {
@@ -60,9 +60,9 @@ async fn check(app: &AppHandle) -> anyhow::Result<Option<String>> {
 }
 
 fn announce(app: &AppHandle, version: &str) {
-    let _ = app.state::<UpdateItem>().0.set_text(format!("Instalar la versión {version}"));
+    let _ = app.state::<UpdateItem>().0.set_text(format!("Install version {version}"));
     let _ = app.emit("update", status(app, Some(version.to_string())));
-    notify(app, "Actualización disponible", &format!("Transfer {version} está lista para instalarse"));
+    notify(app, "Update available", &format!("Transfer {version} is ready to install"));
 }
 
 pub async fn check_periodically(app: AppHandle) {
@@ -87,8 +87,8 @@ async fn install(app: &AppHandle, confirm: bool, restart: bool) -> anyhow::Resul
         matches!(t.state, TransferState::WaitingPeer | TransferState::Connecting | TransferState::Running)
     });
     if confirm && busy {
-        let message = "Hay transferencias en curso y se cancelarán al reiniciar Transfer.".to_string();
-        if !ask(app, message, "Actualizar".into()).await {
+        let message = "There are transfers in progress and they will be cancelled when Transfer restarts.".to_string();
+        if !ask(app, message, "Update".into()).await {
             return Ok(());
         }
     }
@@ -114,24 +114,24 @@ pub fn tray_clicked(app: &AppHandle) {
     tauri::async_runtime::spawn(async move {
         let item = &app.state::<UpdateItem>().0;
         let _ = item.set_enabled(false);
-        let _ = item.set_text("Buscando actualizaciones…");
+        let _ = item.set_text("Checking for updates…");
         let result = check(&app).await;
         let _ = item.set_enabled(true);
         match result {
             Ok(Some(version)) => {
-                let _ = item.set_text(format!("Instalar la versión {version}"));
+                let _ = item.set_text(format!("Install version {version}"));
                 if let Err(e) = install(&app, true, true).await {
-                    info(&app, format!("No se pudo instalar la actualización: {e:#}"));
+                    info(&app, format!("Could not install the update: {e:#}"));
                 }
             }
             Ok(None) => {
                 let _ = item.set_text(CHECK_LABEL);
                 let version = app.package_info().version.to_string();
-                info(&app, format!("Transfer está actualizado (versión {version})."));
+                info(&app, format!("Transfer is up to date (version {version})."));
             }
             Err(e) => {
                 let _ = item.set_text(CHECK_LABEL);
-                info(&app, format!("No se pudo comprobar si hay actualizaciones: {e:#}"));
+                info(&app, format!("Could not check for updates: {e:#}"));
             }
         }
     });

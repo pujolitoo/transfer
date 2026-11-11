@@ -153,11 +153,11 @@ async fn transfers_files_and_folders_through_the_relay() {
 
     let work = tempfile::tempdir().unwrap();
     let big = random_file(&work.path().join("video.bin"), 12 * 1024 * 1024 + 123);
-    let nested = random_file(&work.path().join("carpeta/sub/doc.txt"), 4096);
-    random_file(&work.path().join("carpeta/vacio.dat"), 0);
+    let nested = random_file(&work.path().join("folder/sub/doc.txt"), 4096);
+    random_file(&work.path().join("folder/empty.dat"), 0);
 
     ana.engine
-        .send("bob", vec![work.path().join("video.bin"), work.path().join("carpeta")])
+        .send("bob", vec![work.path().join("video.bin"), work.path().join("folder")])
         .await
         .unwrap();
     let id = bob.transfer_state(TransferState::Incoming).await;
@@ -166,8 +166,8 @@ async fn transfers_files_and_folders_through_the_relay() {
     ana.transfer_state(TransferState::Done).await;
 
     assert_eq!(std::fs::read(bob.downloads.join("video.bin")).unwrap(), big);
-    assert_eq!(std::fs::read(bob.downloads.join("carpeta/sub/doc.txt")).unwrap(), nested);
-    assert_eq!(std::fs::metadata(bob.downloads.join("carpeta/vacio.dat")).unwrap().len(), 0);
+    assert_eq!(std::fs::read(bob.downloads.join("folder/sub/doc.txt")).unwrap(), nested);
+    assert_eq!(std::fs::metadata(bob.downloads.join("folder/empty.dat")).unwrap().len(), 0);
     assert!(!bob.downloads.join("video.bin.part").exists());
     let done = bob.engine.snapshot().transfers[0].done_bytes;
     assert_eq!(done, big.len() as u64 + nested.len() as u64);
@@ -185,19 +185,19 @@ async fn existing_downloads_are_not_overwritten() {
     befriend(&mut ana, "ana", &mut bob, "bob").await;
 
     std::fs::create_dir_all(&bob.downloads).unwrap();
-    std::fs::write(bob.downloads.join("nota.txt"), b"mia").unwrap();
+    std::fs::write(bob.downloads.join("note.txt"), b"mine").unwrap();
     let work = tempfile::tempdir().unwrap();
-    std::fs::write(work.path().join("nota.txt"), b"nueva").unwrap();
+    std::fs::write(work.path().join("note.txt"), b"new").unwrap();
 
-    ana.engine.send("bob", vec![work.path().join("nota.txt")]).await.unwrap();
+    ana.engine.send("bob", vec![work.path().join("note.txt")]).await.unwrap();
     let id = bob.transfer_state(TransferState::Incoming).await;
     bob.engine.accept(&id).await.unwrap();
     bob.transfer_state(TransferState::Done).await;
 
-    assert_eq!(std::fs::read(bob.downloads.join("nota.txt")).unwrap(), b"mia");
-    assert_eq!(std::fs::read(bob.downloads.join("nota (1).txt")).unwrap(), b"nueva");
+    assert_eq!(std::fs::read(bob.downloads.join("note.txt")).unwrap(), b"mine");
+    assert_eq!(std::fs::read(bob.downloads.join("note (1).txt")).unwrap(), b"new");
     let (saved, _) = bob.engine.saved_paths(&id).unwrap();
-    assert_eq!(saved, bob.downloads.join("nota (1).txt"));
+    assert_eq!(saved, bob.downloads.join("note (1).txt"));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -253,7 +253,7 @@ async fn cannot_send_to_strangers() {
     let work = tempfile::tempdir().unwrap();
     random_file(&work.path().join("a.bin"), 10);
     let err = ana.engine.send("bob", vec![work.path().join("a.bin")]).await.unwrap_err();
-    assert!(err.to_string().contains("amigos"), "{err}");
+    assert!(err.to_string().contains("friends"), "{err}");
 
     // A pending request is not a friendship.
     ana.engine.add_friend("bob").await.unwrap();
@@ -279,7 +279,7 @@ async fn account_rules() {
     let (addr, pin) = (&server.addr, &server.fingerprint);
     let err = other.engine.register(addr, pin, "ANA", PASSWORD).await.unwrap_err();
     assert_eq!(err.downcast::<ApiError>().unwrap(), ApiError::UsernameTaken);
-    let err = other.engine.login(addr, pin, "ana", "contraseña mala").await.unwrap_err();
+    let err = other.engine.login(addr, pin, "ana", "wrong password").await.unwrap_err();
     assert_eq!(err.downcast::<ApiError>().unwrap(), ApiError::BadCredentials);
     let err = other.engine.login(addr, pin, "nadie", PASSWORD).await.unwrap_err();
     assert_eq!(err.downcast::<ApiError>().unwrap(), ApiError::BadCredentials);
@@ -292,7 +292,7 @@ async fn repeated_bad_logins_are_rate_limited() {
     let other = Peer::new();
     let (addr, pin) = (&server.addr, &server.fingerprint);
     for _ in 0..10 {
-        let err = other.engine.login(addr, pin, "ana", "contraseña mala").await.unwrap_err();
+        let err = other.engine.login(addr, pin, "ana", "wrong password").await.unwrap_err();
         assert_eq!(err.downcast::<ApiError>().unwrap(), ApiError::BadCredentials);
     }
     let err = other.engine.login(addr, pin, "ana", PASSWORD).await.unwrap_err();
@@ -340,9 +340,9 @@ async fn new_device_blocks_transfers_until_key_is_trusted() {
     .await;
 
     let work = tempfile::tempdir().unwrap();
-    std::fs::write(work.path().join("a.txt"), b"hola").unwrap();
+    std::fs::write(work.path().join("a.txt"), b"hello").unwrap();
     let err = ana.engine.send("bob", vec![work.path().join("a.txt")]).await.unwrap_err();
-    assert!(err.to_string().contains("clave"), "{err}");
+    assert!(err.to_string().contains("key"), "{err}");
 
     ana.engine.trust_key("bob").unwrap();
     bob2.friend_ready("ana", true).await;
@@ -350,7 +350,7 @@ async fn new_device_blocks_transfers_until_key_is_trusted() {
     let id = bob2.transfer_state(TransferState::Incoming).await;
     bob2.engine.accept(&id).await.unwrap();
     bob2.transfer_state(TransferState::Done).await;
-    assert_eq!(std::fs::read(bob2.downloads.join("a.txt")).unwrap(), b"hola");
+    assert_eq!(std::fs::read(bob2.downloads.join("a.txt")).unwrap(), b"hello");
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -360,7 +360,7 @@ async fn remote_relay_registers_and_carries_traffic() {
     let mut bob = Peer::signed_up(&server, "bob").await;
     befriend(&mut ana, "ana", &mut bob, "bob").await;
     let work = tempfile::tempdir().unwrap();
-    std::fs::write(work.path().join("a.txt"), b"por relay remoto").unwrap();
+    std::fs::write(work.path().join("a.txt"), b"through a remote relay").unwrap();
 
     // Without relays the accept fails cleanly.
     ana.engine.send("bob", vec![work.path().join("a.txt")]).await.unwrap();
@@ -380,7 +380,7 @@ async fn remote_relay_registers_and_carries_traffic() {
     let id = bob.transfer_state(TransferState::Incoming).await;
     bob.engine.accept(&id).await.unwrap();
     bob.transfer_state(TransferState::Done).await;
-    assert_eq!(std::fs::read(bob.downloads.join("a.txt")).unwrap(), b"por relay remoto");
+    assert_eq!(std::fs::read(bob.downloads.join("a.txt")).unwrap(), b"through a remote relay");
 }
 
 #[tokio::test(flavor = "multi_thread")]

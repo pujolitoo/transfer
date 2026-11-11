@@ -254,7 +254,7 @@ impl Hub {
             let other = if from == username { to } else { from };
             let event = Event::TransferCancelled {
                 transfer_id: id,
-                reason: format!("{username} se ha desconectado"),
+                reason: format!("{username} went offline"),
             };
             self.push(&other, event);
         }
@@ -274,7 +274,7 @@ impl Hub {
             for user in [from, to] {
                 let event = Event::TransferCancelled {
                     transfer_id: id.clone(),
-                    reason: "la oferta ha caducado".into(),
+                    reason: "the offer expired".into(),
                 };
                 self.push(&user, event);
             }
@@ -396,7 +396,7 @@ impl Hub {
             let other = if t.from == me { t.to } else { t.from };
             let event = Event::TransferCancelled {
                 transfer_id,
-                reason: format!("cancelada por {me}"),
+                reason: format!("cancelled by {me}"),
             };
             self.push(&other, event);
         }

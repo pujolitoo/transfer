@@ -100,7 +100,7 @@ pub fn normalize_fingerprint(pin: &str) -> String {
 pub async fn connect(addr: &str, config: Arc<ClientConfig>) -> io::Result<TlsStream<TcpStream>> {
     let (host, _) = addr
         .rsplit_once(':')
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "falta el puerto en la dirección"))?;
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "the address is missing the port"))?;
     let host = host.trim_matches(['[', ']']).to_string();
     let name = ServerName::try_from(host)
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
@@ -136,7 +136,7 @@ pub fn load_identity(cert: &Path, key: &Path) -> io::Result<Identity> {
     let certs = rustls_pemfile::certs(&mut cert_pem).collect::<Result<Vec<_>, _>>()?;
     let mut key_pem = io::BufReader::new(std::fs::File::open(key)?);
     let key = rustls_pemfile::private_key(&mut key_pem)?
-        .ok_or_else(|| invalid("no se encontró la clave privada"))?;
+        .ok_or_else(|| invalid("no private key found"))?;
     server_config(certs, key).map_err(invalid)
 }
 

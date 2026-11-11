@@ -74,7 +74,7 @@ function setAuthMode(registering) {
   $("tab-register").setAttribute("aria-selected", String(registering));
   $("auth-pass2-row").hidden = !registering;
   $("auth-pass2").required = registering;
-  $("auth-submit").textContent = registering ? "Crear cuenta" : "Entrar";
+  $("auth-submit").textContent = registering ? "Create account" : "Sign in";
   $("auth-pass").autocomplete = registering ? "new-password" : "current-password";
   showError("auth-error", null);
 }
@@ -85,7 +85,7 @@ $("tab-register").addEventListener("click", () => setAuthMode(true));
 $("auth-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   if (model.registering && $("auth-pass").value !== $("auth-pass2").value) {
-    showError("auth-error", "Las contraseñas no coinciden");
+    showError("auth-error", "The passwords do not match");
     return;
   }
   const submit = $("auth-submit");
@@ -119,7 +119,7 @@ function renderFriends() {
 
   const nodes = [];
   if (incoming.length) {
-    nodes.push(el("div", { class: "friend-group" }, "SOLICITUDES"));
+    nodes.push(el("div", { class: "friend-group" }, "REQUESTS"));
     for (const f of incoming) {
       nodes.push(
         el("div", { class: "request" },
@@ -128,19 +128,19 @@ function renderFriends() {
             el("button", {
               class: "primary",
               onclick: () => run("friend-error", "respond_friend", { username: f.username, accept: true }),
-            }, "Aceptar"),
+            }, "Accept"),
             el("button", {
               onclick: () => run("friend-error", "respond_friend", { username: f.username, accept: false }),
-            }, "Rechazar"),
+            }, "Decline"),
           ),
         ),
       );
     }
   }
-  nodes.push(el("div", { class: "friend-group" }, "AMIGOS"));
+  nodes.push(el("div", { class: "friend-group" }, "FRIENDS"));
   if (!accepted.length) {
     nodes.push(el("p", { class: "muted small", style: "padding:4px 8px" },
-      "Añade a alguien por su nombre de usuario."));
+      "Add someone by their username."));
   }
   for (const f of accepted) {
     nodes.push(
@@ -152,21 +152,21 @@ function renderFriends() {
           renderFriends();
         },
       },
-        el("span", { class: `dot${f.online ? " on" : ""}`, title: f.online ? "Conectado" : "Desconectado" }),
+        el("span", { class: `dot${f.online ? " on" : ""}`, title: f.online ? "Online" : "Offline" }),
         el("span", { class: "friend-name" }, f.username),
-        f.key_changed ? el("span", { class: "badge" }, "clave") : null,
+        f.key_changed ? el("span", { class: "badge" }, "key") : null,
       ),
     );
   }
   if (outgoing.length) {
-    nodes.push(el("div", { class: "friend-group" }, "PENDIENTES"));
+    nodes.push(el("div", { class: "friend-group" }, "PENDING"));
     for (const f of outgoing) {
       nodes.push(el("div", { class: "friend muted" },
         el("span", { class: "friend-name" }, f.username),
         el("button", {
           class: "link",
           onclick: () => run("friend-error", "remove_friend", { username: f.username }),
-        }, "Cancelar"),
+        }, "Cancel"),
       ));
     }
   }
@@ -180,38 +180,38 @@ function renderPeer() {
   const zone = $("dropzone");
   if (!friend) {
     header.replaceChildren(el("div", { class: "peer-title" },
-      el("h2", {}, "Sin amigo seleccionado"),
-      el("p", { class: "muted" }, "Cuando alguien acepte tu solicitud podrás enviarle ficheros.")));
+      el("h2", {}, "No friend selected"),
+      el("p", { class: "muted" }, "Once someone accepts your request you can send them files.")));
     zone.hidden = true;
     return;
   }
   const title = el("div", { class: "peer-title" },
     el("h2", {}, friend.username),
-    el("code", { title: "Huella de su clave" }, friend.fingerprint ?? ""));
+    el("code", { title: "Their key fingerprint" }, friend.fingerprint ?? ""));
   const remove = el("button", {
     class: "link",
     onclick: async () => {
-      const message = `¿Eliminar a ${friend.username} de tus amigos?`;
-      if (await invoke("ask_confirmation", { message, confirm: "Eliminar" })) {
+      const message = `Remove ${friend.username} from your friends?`;
+      if (await invoke("ask_confirmation", { message, confirm: "Remove" })) {
         run("send-error", "remove_friend", { username: friend.username });
       }
     },
-  }, "Eliminar amigo");
+  }, "Remove friend");
   header.replaceChildren(title, remove);
 
   if (friend.key_changed) {
     zone.hidden = true;
     header.replaceChildren(el("div", { class: "key-warning" },
-      el("p", {}, `La clave de ${friend.username} ha cambiado. Puede ser un dispositivo nuevo o una suplantación. `
-        + `Comprueba con esa persona que su huella es ${friend.fingerprint} antes de confiar en ella.`),
-      el("button", { onclick: () => run("send-error", "trust_key", { username: friend.username }) }, "Confiar"),
+      el("p", {}, `${friend.username}'s key has changed. It may be a new device or an impersonation. `
+        + `Check with them that their fingerprint is ${friend.fingerprint} before trusting it.`),
+      el("button", { onclick: () => run("send-error", "trust_key", { username: friend.username }) }, "Trust"),
     ));
     return;
   }
   zone.hidden = false;
   $("drop-title").textContent = friend.online
-    ? `Arrastra aquí lo que quieras enviar a ${friend.username}`
-    : `${friend.username} no está conectado; podrás enviarle ficheros cuando vuelva`;
+    ? `Drop here whatever you want to send to ${friend.username}`
+    : `${friend.username} is offline; you can send them files when they are back`;
   $("pick-files").disabled = !friend.online;
   $("pick-folder").disabled = !friend.online;
 }
@@ -238,14 +238,14 @@ $("pick-folder").addEventListener("click", () =>
 /* Transfers */
 
 const STATE_LABEL = {
-  incoming: "Quiere enviarte esto",
-  waiting_peer: "Esperando a que lo acepte",
-  connecting: "Abriendo túnel…",
+  incoming: "Wants to send you this",
+  waiting_peer: "Waiting for them to accept",
+  connecting: "Opening tunnel…",
   running: "",
-  done: "Completado",
+  done: "Completed",
   failed: "Error",
-  declined: "Rechazado",
-  cancelled: "Cancelado",
+  declined: "Declined",
+  cancelled: "Cancelled",
 };
 const FINISHED = new Set(["done", "failed", "declined", "cancelled"]);
 
@@ -266,13 +266,13 @@ function trackSpeed(t) {
 }
 
 function transferMeta(t) {
-  const direction = t.sending ? `Para ${t.peer}` : `De ${t.peer}`;
+  const direction = t.sending ? `To ${t.peer}` : `From ${t.peer}`;
   const size = formatBytes(t.total_bytes);
   if (t.state === "running") {
     const rate = model.speed.get(t.id)?.rate ?? 0;
-    const parts = [direction, `${formatBytes(t.done_bytes)} de ${size}`];
+    const parts = [direction, `${formatBytes(t.done_bytes)} of ${size}`];
     if (rate > 0) {
-      parts.push(`${formatBytes(rate)}/s`, `quedan ${formatEta((t.total_bytes - t.done_bytes) / rate)}`);
+      parts.push(`${formatBytes(rate)}/s`, `${formatEta((t.total_bytes - t.done_bytes) / rate)} left`);
     }
     return parts.join(" · ");
   }
@@ -282,28 +282,28 @@ function transferMeta(t) {
 
 function openButton(t) {
   const open = () => run("send-error", "open_received", { id: t.id });
-  return el("button", { class: "primary", onclick: open }, "Abrir archivo");
+  return el("button", { class: "primary", onclick: open }, "Open file");
 }
 
 function transferActions(t) {
   if (t.state === "incoming") {
     return [
-      el("button", { class: "primary", onclick: () => run("send-error", "accept", { id: t.id }) }, "Aceptar"),
-      el("button", { onclick: () => run("send-error", "decline", { id: t.id }) }, "Rechazar"),
+      el("button", { class: "primary", onclick: () => run("send-error", "accept", { id: t.id }) }, "Accept"),
+      el("button", { onclick: () => run("send-error", "decline", { id: t.id }) }, "Decline"),
     ];
   }
   if (t.state === "done" && t.saved_location) {
     const reveal = el("button", {
       onclick: () => run("send-error", "reveal_received", { id: t.id }),
-    }, "Abrir ubicación");
+    }, "Show in folder");
     return t.file_count === 1 ? [openButton(t), reveal] : [reveal];
   }
   if (FINISHED.has(t.state)) return [];
-  return [el("button", { onclick: () => run("send-error", "cancel", { id: t.id }) }, "Cancelar")];
+  return [el("button", { onclick: () => run("send-error", "cancel", { id: t.id }) }, "Cancel")];
 }
 
 function buildCard(t) {
-  const name = t.file_count > 1 ? `${t.first_file} y ${t.file_count - 1} más` : t.first_file;
+  const name = t.file_count > 1 ? `${t.first_file} and ${t.file_count - 1} more` : t.first_file;
   const stateClass = t.state === "incoming" ? " incoming" : t.state === "failed" ? " failed" : "";
   const meta = el("div", { class: "transfer-meta" });
   const bar = t.state === "running" ? el("div") : null;
@@ -331,7 +331,7 @@ function renderTransfers() {
   }
   const container = $("transfers");
   if (!list.length) {
-    container.replaceChildren(el("p", { class: "empty" }, "Todavía no hay transferencias."));
+    container.replaceChildren(el("p", { class: "empty" }, "No transfers yet."));
     return;
   }
   const nodes = list.map((t) => {
@@ -361,8 +361,8 @@ $("clear-finished").addEventListener("click", () => invoke("clear_finished"));
 listen("tauri://drag-enter", () => {
   if (model.connection !== "online" || !model.selected) return;
   $("drop-overlay-text").textContent = canSendToSelected()
-    ? `Enviar a ${model.selected}`
-    : `No se puede enviar a ${model.selected} ahora`;
+    ? `Send to ${model.selected}`
+    : `Cannot send to ${model.selected} right now`;
   $("drop-overlay").hidden = false;
 });
 listen("tauri://drag-leave", () => {
@@ -403,7 +403,7 @@ $("password-form").addEventListener("submit", async (event) => {
   try {
     await invoke("change_password", { current: $("pass-current").value, next: $("pass-next").value });
     message.className = "small";
-    message.textContent = "Contraseña cambiada.";
+    message.textContent = "Password changed.";
     event.target.reset();
   } catch (e) {
     message.className = "small error";
@@ -416,23 +416,23 @@ $("password-form").addEventListener("submit", async (event) => {
 function renderUpdate(status) {
   $("version-text").textContent = `Transfer ${status.current}`;
   $("update-banner").hidden = !status.ready;
-  $("update-text").textContent = status.ready ? `La versión ${status.ready} está lista para instalarse.` : "";
+  $("update-text").textContent = status.ready ? `Version ${status.ready} is ready to install.` : "";
 }
 
 $("update-install").addEventListener("click", () => invoke("install_update"));
 $("check-updates").addEventListener("click", async (event) => {
   const button = event.target;
   button.disabled = true;
-  button.textContent = "Buscando…";
+  button.textContent = "Checking…";
   try {
     const status = await invoke("check_updates");
     renderUpdate(status);
-    $("version-text").textContent += status.ready ? "" : " · Es la última versión";
+    $("version-text").textContent += status.ready ? "" : " · Up to date";
   } catch (e) {
     $("version-text").textContent = String(e);
   }
   button.disabled = false;
-  button.textContent = "Buscar actualizaciones";
+  button.textContent = "Check for updates";
 });
 
 $("logout").addEventListener("click", async () => {
@@ -450,7 +450,7 @@ function renderConnection() {
   $("me-name").textContent = model.username;
   const online = model.connection === "online";
   $("conn-dot").className = `dot ${online ? "on" : "wait"}`;
-  $("conn-label").textContent = online ? "Conectado" : "Reconectando…";
+  $("conn-label").textContent = online ? "Online" : "Reconnecting…";
 }
 
 function handleEvent(event) {
