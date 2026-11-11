@@ -1,0 +1,15 @@
+services:
+  transfer:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "7443:7443"
+      - "7444:7444"
+    environment:
+      # Address clients use to reach the relay, e.g. mi-servidor.com:7444
+      TRANSFER_RELAY_PUBLIC_ADDR: ${RELAY_PUBLIC_ADDR:?define RELAY_PUBLIC_ADDR}
+    volumes:
+      - transfer-data:/home/transfer/data
+
+volumes:
+  transfer-data:

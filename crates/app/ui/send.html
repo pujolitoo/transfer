@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Enviar con Transfer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="picker">
+    <header>
+      <h2 id="title"></h2>
+      <p id="detail" class="muted small"></p>
+    </header>
+    <p id="hint" class="muted" hidden></p>
+    <nav id="friends" class="picker-list" aria-label="Elige a quién enviar"></nav>
+    <p id="error" class="error" role="alert" hidden></p>
+    <footer class="row">
+      <button id="open-app" hidden>Abrir Transfer</button>
+      <button id="cancel">Cancelar</button>
+    </footer>
+  </main>
+  <script src="send.js"></script>
+</body>
+</html>

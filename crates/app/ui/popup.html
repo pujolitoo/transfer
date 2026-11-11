@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Solicitud de fichero</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="popup">
+    <div class="popup-head">
+      <strong id="title">Fichero entrante</strong>
+      <button id="later" class="icon" title="Decidir más tarde" aria-label="Decidir más tarde">✕</button>
+    </div>
+    <div id="name" class="popup-name"></div>
+    <div id="meta" class="muted small"></div>
+    <div class="row">
+      <button id="accept" class="primary">Aceptar</button>
+      <button id="decline">Rechazar</button>
+      <button id="open" class="link" hidden></button>
+    </div>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>
